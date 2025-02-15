@@ -3,4 +3,4 @@
 ---
 
 - Hi! You shouldn't be here
-- This is a [[note\|note]]
+- This is a [[Sors Garden/My first note\|note]]
