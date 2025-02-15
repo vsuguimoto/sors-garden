@@ -2,4 +2,4 @@
 {"dg-publish":true,"permalink":"/sors-garden/welcome/","tags":["gardenEntry"]}
 ---
 
-- This is my digital garden
+- Hi! You shouldn't be here
