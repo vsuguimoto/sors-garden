@@ -7,17 +7,7 @@
 - After seeing this i got curious and tried to replicate this podcast dynamic, and this is how it went:
 
 # How a podcast works
-
-
-
-```handdrawn-ink
-{
-	"versionAtEmbed": "0.3.3",
-	"filepath": "Ink/Drawing/2025.2.16 - 9.37am.drawing",
-	"width": 675.1068115234375,
-	"aspectRatio": 2.4501817929692247
-}
-```
+![HandDrawGraphPodcastCreation.png](/img/user/Sors%20Garden/Resources/HandDrawGraphPodcastCreation.png)
 
 - Basically, a podcast can be simplified according to the schema above.
     - A host invites a guest to talk about a specific topic, and they exchange questions and answers until a certain point when the podcast comes to an end.
@@ -70,6 +60,7 @@ Do not include notes, instructions, or formatting—just your spoken responses.
 """
 
 ```
+
 ## Graph
 ```python
 from IPython.display import Image, display
@@ -195,7 +186,6 @@ def tts(messages,title):
 # Results
 
 ## Creating a podcast about Digital Garden
-
 ```python
 title = "DigitalGardenEn"
 
@@ -216,5 +206,12 @@ tts(
 )
 
 ```
+<div><iframe width="300" height="60" src="https://vocaroo.com/embed/1hF9qvyBRCqG?autoplay=0" frameborder="0" allow="autoplay"></iframe><br><a href="https://voca.ro/1hF9qvyBRCqG" title="Gravador de Voz do Vocaroo" target="_blank">Ver no Vocaroo &gt;&gt;</a></div>
 
-<div><iframe width="300" height="60" src="https://vocaroo.com/embed/158nWKv5mmVS?autoplay=0" frameborder="0" allow="autoplay"></iframe><br><a href="https://voca.ro/158nWKv5mmVS" title="Gravador de Voz do Vocaroo" target="_blank">Ver no Vocaroo &gt;&gt;</a></div>
+# Final considerations
+
+- These results are a solid 6 out 10.
+- Clearly, you can tell that it's two robots talking. There are no emotions in their voices, no pauses, no breathing—this ends up falling into the "uncanny valley."
+    - It's worth noting that the "text-to-speech" conversion was done locally using a model with only 82M parameters. The voices could sound more natural simply by using a more robust model.
+- Another thing that bothers me is the context of the speakers' lives, especially when they start sharing experiences. Since nothing is predefined, their experiences can end up feeling very unrealistic.
+- There are still details, such as always starting sentences with the same interjection and being stuck to the topic defined in the initial prompt, preventing the conversation from evolving, however this is still impressive given that all was done in less than 4 hours.
