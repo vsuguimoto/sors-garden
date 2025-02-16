@@ -11,4 +11,4 @@
 # Who am i?
 
 - Professionaly, that's [me](https://www.linkedin.com/in/suguimotovinicius/)
-- Personally, a random guy trying to be better
+- Personally, a random guy learning stuff

@@ -19,10 +19,202 @@
 }
 ```
 
-- Basicamente um podcast pode ser simplificado de acordo com a esquematização acima
-	- Um host convida um convidado para falarem sobre um tema específico e ocorrem trocas de perguntas e respostas até determinado ponto em que o podcast se encerra
-- Obviamente isso é uma simplificação, existem nuâncias como piadas internas, sarcasmos, trocas de experiência entre host e convidado, o que fizemos aqui é basicamente um cenário de perguntas e respostas.
+- Basically, a podcast can be simplified according to the schema above.
+    - A host invites a guest to talk about a specific topic, and they exchange questions and answers until a certain point when the podcast comes to an end.
+- Obviously, this is a simplification. There are nuances such as inside jokes, sarcasm, and experience sharing between the host and the guest. What we have done here is essentially a question-and-answer scenario.
 
 # Implementation
 
+- For the project we'll use LangGraph, LangChain (Open AI) and Kokoro TTS to convert text to speech
+
+## API Key
+```python
+import os, getpass
+from dotenv import load_dotenv
+
+load_dotenv(os.path.expanduser("~/.bash_profile")) 
+
+def _set_env(var: str):
+    if not os.environ.get(var):
+        os.environ[var] = getpass.getpass(f"{var}: ")
+
+_set_env("OPENAI_API_KEY")
+```
+
+## System Instructions
+```python
+host_sys_msg = """
+You are the host of a podcast, where you interview experts on specific topics.
+Your goal is to guide the conversation in an engaging way, asking one relevant and clear question at a time.
+Maintain a relaxed and approachable tone while ensuring depth in your questions.
+Your speech should be natural and fluid, like in a real conversation, without notes, instructions, or formatting.
+Focus on creating a friendly atmosphere, encouraging the expert to share their knowledge in a simple and interesting way for the audience.
+"""
+
+guest_sys_msg = """
+You are the guest expert on a podcast.
+Your role is to answer the host's questions, sharing your knowledge in a clear and engaging way.
+Your responses should feel natural, like in a real conversation, avoiding formatted lists or rigid structures.
+Instead, use smooth transitions like "first," "then," and "finally" to organize your ideas.
+Maintain an accessible and captivating tone, using practical examples and analogies whenever necessary to simplify complex concepts.
+Do not include notes, instructions, or formatting—just your spoken responses.
+"""
+
+host_end_ep_sys_msg = """
+You are the host of a podcast.
+After the interview with the expert, your role is to provide a brief and objective summary of what was discussed in the episode.
+Highlight the main points clearly and concisely, as if you were reminding the audience of the key topics.
+Use a relaxed and engaging tone, keeping it natural—like a conversation with the listener.
+After the summary, wrap up the episode with a warm farewell, thanking the audience for tuning in and inviting them to follow the upcoming episodes.
+Do not include notes, instructions, or formatting—just your spoken responses.
+"""
+
+```
+## Graph
+```python
+from IPython.display import Image, display
+from langgraph.graph import START, END, StateGraph
+from langchain_core.messages import AnyMessage
+from langgraph.graph.message import add_messages
+from langchain_openai import ChatOpenAI
+from typing import Annotated, Literal
+from typing_extensions import TypedDict
+from langgraph.checkpoint.memory import MemorySaver
+
+
+class CustomMessagesState(TypedDict):
+
+    podcast_role: Literal["host", "guest"]
+    messages: Annotated[list[AnyMessage], add_messages]
+
+
+def host(state: CustomMessagesState):
+    return {
+        "podcast_role": "host",
+        "messages": [llm.invoke([host_sys_msg] + state["messages"])]
+    }
+
+def host_end_episode(state: CustomMessagesState):
+    return {
+        "podcast_role": "host",
+        "messages": [llm.invoke([host_end_ep_sys_msg] + state["messages"])]
+    }
+
+def guest(state: CustomMessagesState):
+    return {
+        "podcast_role": "guest",
+        "messages": [llm.invoke([guest_sys_msg] + state["messages"])]
+    }
+
+def continue_or_end_episode(state):
+    if len(state['messages']) > 11:
+        return "host_end_episode"
+    else:
+        return "host"
+
+
+llm = ChatOpenAI(model="gpt-4o-mini-2024-07-18")
+builder = StateGraph(CustomMessagesState)
+
+builder.add_node("host", host)
+builder.add_node("guest", guest)
+builder.add_node("host_end_episode", host_end_episode)
+
+builder.add_edge(START, "host")
+builder.add_edge("host", "guest")
+builder.add_conditional_edges(
+    "guest",
+    continue_or_end_episode
+)
+builder.add_edge("host_end_episode", END)
+
+memory = MemorySaver()
+
+podcast_graph = builder.compile(checkpointer=memory)
+thread = {"configurable": {"thread_id": "2"}}
+
+display(Image(podcast_graph.get_graph().draw_mermaid_png()))
+```
 ![PodcastCreationLangGraph.png](/img/user/Sors%20Garden/Resources/PodcastCreationLangGraph.png)
+
+
+## Converting text to audio locally
+```python
+import os
+import soundfile as sf
+from kokoro import KPipeline
+from pathlib import Path
+from pydub import AudioSegment
+
+def _combine_wav(audio_dir, result_file_name="combined.wav"):
+
+    wav_files = sorted([f for f in os.listdir(audio_dir) if f.endswith('.wav')])
+
+    combined_audio = AudioSegment.empty()
+
+    for file in wav_files:
+        file_path = os.path.join(audio_dir, file)
+        print(f"Adding {file}...")
+        audio = AudioSegment.from_wav(file_path)
+        combined_audio += audio
+
+    output_path = os.path.join(audio_dir, result_file_name)
+    combined_audio.export(output_path, format="wav")
+
+    print(f"File saved in: {output_path}")
+
+
+
+def tts(messages,title):
+
+    pipeline = KPipeline(lang_code='a')
+    counter = 0
+    for i in messages:
+        current_row = list(i.values())[0]
+
+        voice = "af_heart"
+        if current_row['podcast_role'] == "host":
+            voice = "am_fenrir"
+
+        generator = pipeline(
+            current_row["messages"][0].content,
+            voice=voice, # <= change voice here
+            speed=1.2, split_pattern=r'\n+'
+        )
+
+        dir_path = Path(f'soundfiles/{title}')
+        dir_path.mkdir(parents=True, exist_ok=True)
+
+        for i, (gs, ps, audio) in enumerate(generator):
+            sf.write(f'soundfiles/{title}/{counter:03}.wav', audio, 24000) # save each audio file
+            counter += 1
+
+    _combine_wav(f'soundfiles/{title}', f"{title}.wav")
+
+```
+# Results
+
+## Creating a podcast about Digital Garden
+
+```python
+title = "DigitalGardenEn"
+
+podcast_theme = """
+Today we are receiving in our podcast Kayle, a renowed writer, to talk about how she
+usually share her notes through her digital garden, and why is a good idea to do that
+"""
+
+initial_input = {
+    "messages": podcast_theme
+}
+
+messages = podcast_graph.invoke(initial_input,thread,stream_mode="updates")
+
+tts(
+	messages,
+	title,
+)
+
+```
+
+<div><iframe width="300" height="60" src="https://vocaroo.com/embed/158nWKv5mmVS?autoplay=0" frameborder="0" allow="autoplay"></iframe><br><a href="https://voca.ro/158nWKv5mmVS" title="Gravador de Voz do Vocaroo" target="_blank">Ver no Vocaroo &gt;&gt;</a></div>
